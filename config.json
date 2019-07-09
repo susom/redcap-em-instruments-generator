@@ -1,0 +1,41 @@
+{
+  "name": "REDCap Instruments Generator",
+  "namespace": "Stanford\\InstrumentsGenerator",
+  "description": "This EM will generate multiple CSV files to be imported into REDCap",
+  "authors": [
+    {
+      "name": "Ihab Zeedia",
+      "email": "ihab.zeedia@stanford.edu",
+      "institution": "Stanford University"
+    }
+  ],
+  "permissions": [
+    "redcap_every_page_before_render"
+  ],
+  "links": {
+    "project": [
+      {
+        "name": "Instruments Generator Index",
+        "icon": "brick",
+        "url": "view/index.php",
+        "show-header-and-footer": true
+      },
+      {
+        "name": "Instruments Generator",
+        "icon": "brick",
+        "url": "model/generator.php",
+        "show-header-and-footer": false
+      }
+    ]
+  },
+  "project-settings": [
+    {
+      "key": "enable-project-debug-logging",
+      "name": "<b>Enable Debug Logging</b></h6><i> (Requires emLogger)</i><br>If you have questions enabling debugging, please contact the REDCap team for help.",
+      "required": false,
+      "type": "checkbox",
+      "source": "js/config.js",
+      "functionName": "SummarizeConfig.init"
+    }
+  ]
+}
