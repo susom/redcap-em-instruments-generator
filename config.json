@@ -21,34 +21,16 @@
         "show-header-and-footer": true
       },
       {
-        "name": "Instruments Generator",
-        "icon": "brick",
-        "url": "model/generator.php",
-        "show-header-and-footer": false
-      },
-      {
         "name": "Process Repeatable Data",
         "icon": "brick",
         "url": "view/process_repeatable.php",
         "show-header-and-footer": true
       },
       {
-        "name": "Process Repeatable Data Model",
-        "icon": "brick",
-        "url": "model/process_repeatable.php",
-        "show-header-and-footer": false
-      },
-      {
         "name": "Import Data View",
         "icon": "brick",
         "url": "view/import.php",
         "show-header-and-footer": true
-      },
-      {
-        "name": "Import Data Model",
-        "icon": "brick",
-        "url": "model/import.php",
-        "show-header-and-footer": false
       }
     ]
   },
