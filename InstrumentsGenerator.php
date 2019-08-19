@@ -85,7 +85,7 @@ class InstrumentsGenerator extends \ExternalModules\AbstractExternalModule
         $pointer = 0;
         $header = array();
         if ($file) {
-            while (($line = fgetcsv($file, 1000, "\t")) !== false) {
+            while (($line = fgetcsv($file, 1000, ",")) !== false) {
 
                 if ($pointer == 0) {
                     $header = implode(",", $line);
@@ -101,7 +101,8 @@ class InstrumentsGenerator extends \ExternalModules\AbstractExternalModule
                  * No numeric values for variable name use variable label instead
                  */
                 if (preg_match('/^\d/', $line[0]) === 1) {
-                    $line[0] = $line[4];
+                    $line[0] = strtolower($line[4]);
+                    $line = $this->attachFormNameToVariableName($line);
                 }
                 /**
                  * when form changed lets download zip file $pointer  to ignore header data
@@ -159,6 +160,10 @@ class InstrumentsGenerator extends \ExternalModules\AbstractExternalModule
 
         if ($line[3] == 'comment') {
             $line[3] = 'text';
+        }
+
+        if ($line[3] == 'composite-select-group') {
+            $line[3] = 'select';
         }
 
         /**
