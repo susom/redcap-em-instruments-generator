@@ -145,7 +145,7 @@ class InstrumentsGenerator extends \ExternalModules\AbstractExternalModule
             $line[7] = self::$dateFormat;
         }
 
-        if ($line[3] == 'number') {
+        if ($line[3] == 'number' || $line[3] == 'calculated-age') {
             $line[3] = 'text';
             $line[7] = 'number';
         }
@@ -158,11 +158,11 @@ class InstrumentsGenerator extends \ExternalModules\AbstractExternalModule
             $line[3] = 'checkbox';
         }
 
-        if ($line[3] == 'comment') {
+        if ($line[3] == 'comment' || $line[3] == 'html-document') {
             $line[3] = 'text';
         }
 
-        if ($line[3] == 'composite-select-group') {
+        if ($line[3] == 'composite-select-group' || $line[3] == 'radio-group' || $line[3] == 'select' || $line[3] == 'composite-radio-group' || $line[3] == 'composite-checkbox-group' || $line[3] == 'person-list') {
             $line[3] = 'select';
         }
 
