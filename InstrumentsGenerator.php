@@ -130,6 +130,7 @@ class InstrumentsGenerator extends \ExternalModules\AbstractExternalModule
                 $data[] = implode(",", $line);
                 $pointer++;
             }
+            $this->saveToMainArchive($data, $formName . '.zip');
             fclose($file);
             $this->downloadFile(self::$instruments);
         }
