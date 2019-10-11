@@ -31,6 +31,12 @@
         "icon": "redcap-logo-letter",
         "url": "view/import.php",
         "show-header-and-footer": true
+      },
+      {
+        "name": "Re-Value Data Dictionary Options",
+        "icon": "gear",
+        "url": "view/re_value.php",
+        "show-header-and-footer": true
       }
     ]
   },
