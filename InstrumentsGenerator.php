@@ -3,13 +3,16 @@
 namespace Stanford\InstrumentsGenerator;
 
 use Logging;
+use MetaData;
 use REDCap;
+use Sabre\DAV\Exception;
 use ZipArchive;
 
 /**
  * Class InstrumentsGenerator
  * @package Stanford\InstrumentsGenerator
  * @property \ZipArchive $archive
+ * @property \Project $project
  */
 
 class InstrumentsGenerator extends \ExternalModules\AbstractExternalModule
@@ -44,21 +47,49 @@ class InstrumentsGenerator extends \ExternalModules\AbstractExternalModule
 
     private $recordCounter = array();
 
+    private $project;
 
     private $postData = array();
 
+    private $updatedFields = array();
+
     public function __construct()
     {
-        parent::__construct();
-        $this->setArchive(new ZipArchive());
+        try {
+            parent::__construct();
+            $this->setArchive(new ZipArchive());
 
-        /**
-         * Open main instruments archive file for save
-         */
-        if ($this->getArchive()->open(self::$instruments, ZipArchive::CREATE) !== true) {
-            exit("ERROR!");
+            if (isset($_GET['pid'])) {
+                $this->setProject(new \Project(filter_var($_GET['pid'], FILTER_SANITIZE_NUMBER_INT)));
+            }
+
+            /**
+             * Open main instruments archive file for save
+             */
+            if ($this->getArchive()->open(self::$instruments, ZipArchive::CREATE) !== true) {
+                exit("ERROR!");
+            }
+        } catch (\Exception $e) {
+            echo $e->getMessage();
         }
     }
+
+    /**
+     * @return \Project
+     */
+    public function getProject()
+    {
+        return $this->project;
+    }
+
+    /**
+     * @param \Project $project
+     */
+    public function setProject($project)
+    {
+        $this->project = $project;
+    }
+
 
     /**
      * @return ZipArchive
@@ -389,5 +420,192 @@ class InstrumentsGenerator extends \ExternalModules\AbstractExternalModule
         }
         print $output;
         curl_close($ch);
+    }
+
+
+    public function re_value($file)
+    {
+
+        try {
+            $pointer = 0;
+            $data = excel_to_array($_FILES['file']['tmp_name']);
+            list ($errors_array, $warnings_array, $dictionary_array) = MetaData::error_checking($data);
+            $this->updateMetaData($data);
+            $instrumentName = '';
+            $eventName = '';
+            if ($file) {
+                while (($line = fgetcsv($file, 0, ",")) !== false) {
+
+                    //if instrument name changed then lets get the event name
+                    if ($line[1] != $instrumentName) {
+                        $instrumentName = $line[1];
+                        $eventId = $this->getEventName($instrumentName);
+                    }
+                    //header of the file
+                    if ($pointer == 0) {
+                        $this->header = $line;
+                        $pointer++;
+                        continue;
+                    }
+
+                    /**
+                     * if field type not dropdown or checkbox ignore this field
+                     */
+                    if (!in_array($line[3], array('dropdown', 'checkbox'))) {
+                        $pointer++;
+                        continue;
+                    }
+
+                    /**
+                     * get current enum value of field
+                     */
+                    $c = $this->getProject()->metadata[$line[0]]['element_enum'];
+                    $currentKeys = array_keys(parseEnum($c));
+                    $currentValues = (parseEnum($c));
+
+                    //get new field values posted via uploaded file
+                    $newKeys = array_keys(parseEnum(str_replace("|", "\n", $line[5])));
+                    $newValues = parseEnum(str_replace("|", "\n", $line[5]));
+
+                    //compare two arrays of keys and their corresponding  values and check if anything got changed
+                    $diff = array_diff($currentKeys, $newKeys);;
+                    $diffValue = array_diff_key($currentValues, $newValues);;
+
+                    //if both are empty nothing changed ignore this field.
+                    if (empty($diff) && empty($diffValue)) {
+                        continue;
+                    }
+
+                    //if number of values changed the map wont work abort
+                    if (count($newValues) != count($currentValues)) {
+                        throw new \LogicException("Number of posted values do not equal existing values, please review uploaded data dictionary for field: " . $line[0]);
+                    }
+
+                    //todo update all data related to this field.
+                    $pointer = 0;
+                    foreach ($newKeys as $key => $new) {
+                        $old = $currentKeys[$key];
+
+                        //values are different
+                        if ($old != $new) {
+                            $var = "[" . $line[0] . "]";
+                            $this->updatedFields[$var][] = array($old => $new);
+                            $this->updateFieldData($eventId, $line[0], $old, $new);
+                        }
+                        $pointer++;
+                    }
+
+                    //todo update calculated fields for new values;
+
+                }
+
+                //update branching logic for other fields
+                $logic = $this->updateBranchingLogic($data["L"]);
+                //check if logic changed update meta data again;
+                $diff = array_diff($data["L"], $logic);;
+                if (!empty($diff)) {
+                    $data["L"] = $logic;
+                    $this->updateMetaData($data);
+                }
+
+                fclose($file);
+            }
+        } catch (\LogicException $e) {
+            echo $e->getMessage();
+            die();
+        }
+    }
+
+    private function updateBranchingLogic($logic)
+    {
+        if (!empty($this->updatedFields)) {
+            foreach ($this->updatedFields as $field => $map) {
+                foreach ($logic as $key => $row) {
+                    if ($row == "") {
+                        continue;
+                    } else {
+                        //if field is in branching logic
+                        if (strpos($row, $field) !== false) {
+                            foreach ($map as $old => $new) {
+                                //if the value is in branching logic
+                                if (strpos($row, key($new)) !== false) {
+                                    $x = key($new);
+                                    $string = str_replace($x, $new[$x], $row);
+                                    $logic[$key] = $string;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        return $logic;
+    }
+
+    private function getEventName($instrument)
+    {
+        $events = $this->getProject()->eventsForms;
+        foreach ($events as $id => $event) {
+            if (in_array($instrument, $event)) {
+                return $id;
+            }
+        }
+        return false;
+    }
+
+    private function updateFieldData($eventId, $name, $old, $new)
+    {
+        $param = array(
+            'filterLogic' => "[$name] = '$old'",
+            'return_format' => 'array',
+            'events' => $eventId
+        );
+        $data = REDCap::getData($param);
+
+        foreach ($data as $id => $record) {
+            $d[REDCap::getRecordIdField()] = $id;
+            $d[$name] = $new;
+            //$d['redcap_event_name'] = $eventId;
+            $response = \REDCap::saveData('json', json_encode(array($d)));
+            if ($response['errors']) {
+                if (is_array($response['errors'])) {
+                    $error = implode(", ", $response['errors']);
+                } else {
+                    $error = $response['errors'];
+                }
+                throw new \LogicException($error);
+            }
+        }
+    }
+
+    private function updateMetaData($data)
+    {
+        // Set up all actions as a transaction to ensure everything is done here
+        db_query("SET AUTOCOMMIT=0");
+        db_query("BEGIN");
+
+
+        // Save data dictionary in metadata table
+        $sql_errors = MetaData::save_metadata($data);
+
+        // Display any failed queries to Super Users, but only give minimal info of error to regular users
+        if (count($sql_errors) > 0) {
+
+            // ERRORS OCCURRED, so undo any changes made
+            db_query("ROLLBACK");
+            // Set back to previous value
+            db_query("SET AUTOCOMMIT=1");
+
+            //todo dispaly errors
+
+
+        } else {
+            // COMMIT CHANGES
+            db_query("COMMIT");
+            // Set back to previous value
+            db_query("SET AUTOCOMMIT=1");
+
+            //todo do something here
+        }
     }
 }
