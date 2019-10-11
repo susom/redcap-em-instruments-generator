@@ -432,7 +432,6 @@ class InstrumentsGenerator extends \ExternalModules\AbstractExternalModule
             list ($errors_array, $warnings_array, $dictionary_array) = MetaData::error_checking($data);
             $this->updateMetaData($data);
             $instrumentName = '';
-            $eventName = '';
             if ($file) {
                 while (($line = fgetcsv($file, 0, ",")) !== false) {
 
@@ -481,7 +480,7 @@ class InstrumentsGenerator extends \ExternalModules\AbstractExternalModule
                         throw new \LogicException("Number of posted values do not equal existing values, please review uploaded data dictionary for field: " . $line[0]);
                     }
 
-                    //todo update all data related to this field.
+                    //update all data related to this field.
                     $pointer = 0;
                     foreach ($newKeys as $key => $new) {
                         $old = $currentKeys[$key];
@@ -509,6 +508,8 @@ class InstrumentsGenerator extends \ExternalModules\AbstractExternalModule
                 }
 
                 fclose($file);
+
+                echo "update completed successfully!";
             }
         } catch (\LogicException $e) {
             echo $e->getMessage();
@@ -596,8 +597,7 @@ class InstrumentsGenerator extends \ExternalModules\AbstractExternalModule
             // Set back to previous value
             db_query("SET AUTOCOMMIT=1");
 
-            //todo dispaly errors
-
+            echo implode(",", $sql_errors);
 
         } else {
             // COMMIT CHANGES
@@ -605,7 +605,6 @@ class InstrumentsGenerator extends \ExternalModules\AbstractExternalModule
             // Set back to previous value
             db_query("SET AUTOCOMMIT=1");
 
-            //todo do something here
         }
     }
 }
