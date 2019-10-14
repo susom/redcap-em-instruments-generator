@@ -43,6 +43,23 @@ $generatorURL = $module->getUrl('model/re_value.php', false, true);
 
         <div class="col-lg-12">
             <!-- Correlated Report form -->
+            <div class="alert alert-info" role="alert">
+                <h4 class="alert-heading">Note!</h4>
+                <p>When updating the data dictionary please note:</p>
+                <ul class="list-group">
+                    <li class="list-group-item">Update ONLY field`s labels and values under "Choices, Calculations, OR
+                        Slider Labels" column
+                    </li>
+                    <li class="list-group-item">DO not update any role under "Branching Logic (Show field only if...)"
+                        column. EM will check update values and update their corresponding branching logic rule if
+                        exists.
+                    </li>
+                    <li class="list-group-item">DO NOT ADD/REMOVE ANY new labels/values or REMOVE existing
+                        labels/values. Because EM will existing order to update the field data. you can add more option
+                        using Designer interface.
+                    </li>
+                </ul>
+            </div>
             <form enctype="multipart/form-data" action="<?php echo $generatorURL ?>" method="post">
                 <div class="row p-1">
                     <div class="custom-file">
