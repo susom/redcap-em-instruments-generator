@@ -490,6 +490,8 @@ class InstrumentsGenerator extends \ExternalModules\AbstractExternalModule
                             $var = "[" . $line[0] . "]";
                             $this->updatedFields[$var][] = array($old => $new);
                             $this->updateFieldData($eventId, $line[0], $old, $new);
+
+                            $this->updateFieldSurveyLogic($eventId, $line[0], $old, $new);
                         }
                         $pointer++;
                     }
@@ -554,6 +556,35 @@ class InstrumentsGenerator extends \ExternalModules\AbstractExternalModule
         return false;
     }
 
+    private function updateFieldSurveyLogic($eventId, $name, $old, $new)
+    {
+        $sql = "SELECT ss_id, survey_id, condition_logic FROM redcap_surveys_scheduler where event_id = $eventId AND condition_logic LIKE '%$name%$old%'";
+
+        $result = db_query($sql);
+        $count = db_num_rows($result);
+
+        if ($count > 0) {
+            while ($row = db_fetch_assoc($result)) {
+                $logic = str_replace($old, '"' . $new . '"', $row['condition_logic']);
+                $ss_id = $row['ss_id'];
+                $survey_id = $row['survey_id'];
+                $sql = "UPDATE redcap_surveys_scheduler set condition_logic = '$logic' WHERE event_id = '$eventId' AND ss_id = '$ss_id' AND survey_id = '$survey_id'";
+                $result = db_query($sql);
+                if (!$result) {
+                    throw new \LogicException("Cant update conditional logic in survey scheduler for " . $name);
+                }
+            }
+        }
+
+    }
+
+    /**
+     * update field saved data from old value to the new one.
+     * @param $eventId
+     * @param $name
+     * @param $old
+     * @param $new
+     */
     private function updateFieldData($eventId, $name, $old, $new)
     {
         $param = array(

@@ -43,10 +43,10 @@ $generatorURL = $module->getUrl('model/re_value.php', false, true);
 
         <div class="col-lg-12">
             <!-- Correlated Report form -->
-            <div class="alert alert-info" role="alert">
-                <h4 class="alert-heading">Note!</h4>
+            <div class="alert-info" role="alert">
+                <h4 class="alert-heading p-1">Note!</h4>
                 <p>When updating the data dictionary please note:</p>
-                <ul class="list-group">
+                <ul class="list-group p-1">
                     <li class="list-group-item">Update ONLY field`s labels and values under "Choices, Calculations, OR
                         Slider Labels" column
                     </li>
