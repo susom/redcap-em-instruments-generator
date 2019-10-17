@@ -67,6 +67,11 @@ $generatorURL = $module->getUrl('model/re_value.php', false, true);
                         <label class="custom-file-label" for="customFileLang">Upload Modified Data Dictionary</label>
                     </div>
                 </div>
+                <div class=" ">
+                    <input type="checkbox" id="auto-value" name="auto-value">
+                    <label for="customCheck1">Check if you want to let EM re-value dropdown and checkboxes
+                        incrementally(Note: no label changes will be applied)</label>
+                </div>
                 <div class="row p-1">
                     <div class="col text-center">
                         <button type="submit" name="correlated-report-submit" class="btn btn-primary"

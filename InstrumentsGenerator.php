@@ -13,6 +13,7 @@ use ZipArchive;
  * @package Stanford\InstrumentsGenerator
  * @property \ZipArchive $archive
  * @property \Project $project
+ * @property bool $autoValue
  */
 
 class InstrumentsGenerator extends \ExternalModules\AbstractExternalModule
@@ -53,6 +54,7 @@ class InstrumentsGenerator extends \ExternalModules\AbstractExternalModule
 
     private $updatedFields = array();
 
+    private $autoValue;
     public function __construct()
     {
         try {
@@ -73,6 +75,23 @@ class InstrumentsGenerator extends \ExternalModules\AbstractExternalModule
             echo $e->getMessage();
         }
     }
+
+    /**
+     * @return bool
+     */
+    public function isAutoValue()
+    {
+        return $this->autoValue;
+    }
+
+    /**
+     * @param bool $autoValue
+     */
+    public function setAutoValue($autoValue)
+    {
+        $this->autoValue = $autoValue;
+    }
+
 
     /**
      * @return \Project
@@ -422,6 +441,27 @@ class InstrumentsGenerator extends \ExternalModules\AbstractExternalModule
         curl_close($ch);
     }
 
+    private function reValueMetaData($values)
+    {
+        $pointer = 0;
+        foreach ($values as $key => $value) {
+            if ($value == "") {
+                continue;
+            }
+            $currentKeys = array_keys(parseEnum(str_replace("|", "\n", $value)));
+            $currentValues = parseEnum(str_replace("|", "\n", $value));
+            $string = '';
+            $newPointer = 1;
+            for ($i = 0; $i < count($currentKeys); $i++) {
+                $string .= $newPointer . ' , ' . $currentValues[$currentKeys[$i]] . '|';
+                $newPointer++;
+            }
+            $string = substr($string, 0, -1);
+            $values[$key] = $string;
+            $pointer++;
+        }
+        return $values;
+    }
 
     public function re_value($file)
     {
@@ -430,6 +470,11 @@ class InstrumentsGenerator extends \ExternalModules\AbstractExternalModule
             $pointer = 0;
             $data = excel_to_array($_FILES['file']['tmp_name']);
             list ($errors_array, $warnings_array, $dictionary_array) = MetaData::error_checking($data);
+
+            //if auto value is enabled them update the $data array then update meta data so when you update each field it wont throw an error.
+            if ($this->isAutoValue()) {
+                $data["F"] = $this->reValueMetaData($data["F"]);
+            }
             $this->updateMetaData($data);
             $instrumentName = '';
             if ($file) {
@@ -462,9 +507,21 @@ class InstrumentsGenerator extends \ExternalModules\AbstractExternalModule
                     $currentKeys = array_keys(parseEnum($c));
                     $currentValues = (parseEnum($c));
 
-                    //get new field values posted via uploaded file
-                    $newKeys = array_keys(parseEnum(str_replace("|", "\n", $line[5])));
-                    $newValues = parseEnum(str_replace("|", "\n", $line[5]));
+                    //if auto value is assigned then update keys incrementally only
+                    if ($this->isAutoValue()) {
+                        $keyPointer = 1;
+                        $newKeys = array();
+                        for ($i = 0; $i < count($currentKeys); $i++) {
+                            $newKeys[] = $keyPointer;
+                            $keyPointer++;
+                        }
+                        $newValues = $currentValues;
+                    } else {
+                        //get new field values posted via uploaded file
+                        $newKeys = array_keys(parseEnum(str_replace("|", "\n", $line[5])));
+                        $newValues = parseEnum(str_replace("|", "\n", $line[5]));
+                    }
+
 
                     //compare two arrays of keys and their corresponding  values and check if anything got changed
                     $diff = array_diff($currentKeys, $newKeys);;
@@ -497,7 +554,7 @@ class InstrumentsGenerator extends \ExternalModules\AbstractExternalModule
                     }
 
                     //todo update calculated fields for new values;
-
+                    $pointer++;
                 }
 
                 //update branching logic for other fields

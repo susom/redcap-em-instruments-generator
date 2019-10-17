@@ -17,6 +17,8 @@ try {
     }
 
     $file = fopen($_FILES['file']['tmp_name'], 'r');
+
+    $module->setAutoValue((filter_var($_POST['auto-value'], FILTER_SANITIZE_STRING) == "on" ? true : false));
     if ($file) {
         $data = $module->re_value($file);
     } else {
