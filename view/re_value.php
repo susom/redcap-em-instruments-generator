@@ -35,8 +35,8 @@ $generatorURL = $module->getUrl('model/re_value.php', false, true);
     </div>
     <div class="row ">
         <div class="col-lg-12">
-            <a href="<?php echo $_SERVER['REQUEST_SCHEME'] . '://' . SERVER_NAME . APP_PATH_WEBROOT . 'Design/data_dictionary_download.php?pid=' . PROJECT_ID ?>"
-               class=" text-center btn btn-primary btn-lg btn-block">First Download Existing Data Dictionary</a>
+            <a href="<?php echo $module->getUrl('sample/import_sample.csv') ?>"
+               class=" text-center btn btn-primary btn-lg btn-block">First Download Sample Import file</a>
         </div>
     </div>
     <div id="filters-row" class="row p-1">
@@ -66,11 +66,6 @@ $generatorURL = $module->getUrl('model/re_value.php', false, true);
                         <input type="file" class="custom-file-input" name="file" id="file" lang="es">
                         <label class="custom-file-label" for="customFileLang">Upload Modified Data Dictionary</label>
                     </div>
-                </div>
-                <div class=" ">
-                    <input type="checkbox" id="auto-value" name="auto-value">
-                    <label for="customCheck1">Check if you want to let EM re-value dropdown and checkboxes
-                        incrementally(Note: no label changes will be applied)</label>
                 </div>
                 <div class="row p-1">
                     <div class="col text-center">

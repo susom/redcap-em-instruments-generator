@@ -8,6 +8,13 @@ use REDCap;
 use Sabre\DAV\Exception;
 use ZipArchive;
 
+define("FIELD_NAME", 0);
+define("FIELD_LABEL", 1);
+define("INSTRUMENT_NAME", 2);
+define("CURRENT_VALUE", 3);
+define("NEW_VALUE", 4);
+define("CURRENT_LABEL", 5);
+define("NEW_LABEL", 6);
 /**
  * Class InstrumentsGenerator
  * @package Stanford\InstrumentsGenerator
@@ -441,11 +448,11 @@ class InstrumentsGenerator extends \ExternalModules\AbstractExternalModule
         curl_close($ch);
     }
 
-    private function reValueMetaData($values)
+    private function reValueMetaData($values, $types)
     {
         $pointer = 0;
         foreach ($values as $key => $value) {
-            if ($value == "") {
+            if ($value == "" || !in_array($types[$key], array("dropdown", "checkbox"))) {
                 continue;
             }
             $currentKeys = array_keys(parseEnum(str_replace("|", "\n", $value)));
@@ -465,26 +472,12 @@ class InstrumentsGenerator extends \ExternalModules\AbstractExternalModule
 
     public function re_value($file)
     {
-
         try {
             $pointer = 0;
-            $data = excel_to_array($_FILES['file']['tmp_name']);
-            list ($errors_array, $warnings_array, $dictionary_array) = MetaData::error_checking($data);
-
-            //if auto value is enabled them update the $data array then update meta data so when you update each field it wont throw an error.
-            if ($this->isAutoValue()) {
-                $data["F"] = $this->reValueMetaData($data["F"]);
-            }
-            $this->updateMetaData($data);
-            $instrumentName = '';
+            $valueUpdate = false;
             if ($file) {
                 while (($line = fgetcsv($file, 0, ",")) !== false) {
 
-                    //if instrument name changed then lets get the event name
-                    if ($line[1] != $instrumentName) {
-                        $instrumentName = $line[1];
-                        $eventId = $this->getEventName($instrumentName);
-                    }
                     //header of the file
                     if ($pointer == 0) {
                         $this->header = $line;
@@ -495,75 +488,100 @@ class InstrumentsGenerator extends \ExternalModules\AbstractExternalModule
                     /**
                      * if field type not dropdown or checkbox ignore this field
                      */
-                    if (!in_array($line[3], array('dropdown', 'checkbox'))) {
+                    if (!in_array($this->getProject()->metadata[$line[FIELD_NAME]]['element_type'],
+                        array('select', 'checkbox'))) {
                         $pointer++;
                         continue;
+                    }
+
+                    //if no field name them abort
+                    if ($line[FIELD_NAME] == "") {
+                        throw new \LogicException("No field name define for line " . $pointer);
+                    }
+
+                    //check we already processed this field before
+                    if (!$this->data[$line[FIELD_NAME]]) {
+
+                        $this->data[$line[FIELD_NAME]]['enum'] = $this->getProject()->metadata[$line[FIELD_NAME]]['element_enum'];
+                        $this->data[$line[FIELD_NAME]]['labels'] = parseEnum($this->data[$line[FIELD_NAME]]['enum']);
+                        $this->data[$line[FIELD_NAME]]['keys'] = array_keys(parseEnum($this->data[$line[FIELD_NAME]]['enum']));
+
+                        //escape one time for database insert.
+                        $this->data[$line[FIELD_NAME]]['enum'] = db_escape($this->getProject()->metadata[$line[FIELD_NAME]]['element_enum']);
+                    }
+
+
+                    //if instrument name changed then lets get the event name
+                    if ($line[INSTRUMENT_NAME] == '') {
+                        throw new \LogicException("No instrument defined for " . $line[FIELD_NAME]);
+                    } else {
+                        $eventId = $this->getEventName($line[INSTRUMENT_NAME]);
+                    }
+
+
+                    //if passed current value does not exist as a value in data dictionary.
+                    if ($line[CURRENT_VALUE] != '' && !in_array($line[CURRENT_VALUE],
+                            $this->data[$line[FIELD_NAME]]['keys'])) {
+                        throw new \LogicException("Current Value " . $line[CURRENT_VALUE] . " does not exist in " . $line[FIELD_NAME]);
+                    }
+
+                    //if passed current label does not exist as a label in data dictionary.
+                    if ($line[CURRENT_LABEL] != '' && !in_array($line[CURRENT_LABEL],
+                            $this->data[$line[FIELD_NAME]]['labels'])) {
+                        throw new \LogicException("Current Label " . $line[CURRENT_LABEL] . " does not exist in " . $line[FIELD_NAME]);
+                    }
+
+                    //new values MUST be numeric
+                    if ($line[NEW_VALUE] != '' && !is_numeric($line[NEW_VALUE])) {
+                        throw new \LogicException("New Value " . $line[NEW_VALUE] . " for field " . $line[FIELD_NAME] . " MUST be numeric");
                     }
 
                     /**
-                     * get current enum value of field
+                     * if field label changed we can update it directly
                      */
-                    $c = $this->getProject()->metadata[$line[0]]['element_enum'];
-                    $currentKeys = array_keys(parseEnum($c));
-                    $currentValues = (parseEnum($c));
+                    if ($line[FIELD_LABEL] != $this->getProject()->metadata[$line[FIELD_NAME]]['description']) {
+                        $this->updateFieldLabel($line);
+                    }
 
-                    //if auto value is assigned then update keys incrementally only
-                    if ($this->isAutoValue()) {
-                        $keyPointer = 1;
-                        $newKeys = array();
-                        for ($i = 0; $i < count($currentKeys); $i++) {
-                            $newKeys[] = $keyPointer;
-                            $keyPointer++;
+                    //if the value for field got changed.
+                    if ($line[NEW_VALUE] != '' && $line[NEW_VALUE] != $line[CURRENT_VALUE]) {
+
+                        //regex to search for current value in the element_enum then replace it with new one
+                        $regex = '/' . $line[CURRENT_VALUE] . '\,\s*/i';
+                        $this->data[$line[FIELD_NAME]]['enum'] = preg_replace($regex, $line[NEW_VALUE] . ", ",
+                            $this->data[$line[FIELD_NAME]]['enum']);
+
+                        //then we need to update the data
+                        $valueUpdate = true;
+                    }
+
+                    //if the label for field got changed.
+                    if ($line[NEW_LABEL] != '' && $line[NEW_LABEL] != $line[CURRENT_LABEL]) {
+                        //regex to search for current label in the element_enum then replace it with new one
+                        $regex = '/\,\s' . $line[CURRENT_LABEL] . '/i';
+                        $this->data[$line[FIELD_NAME]]['enum'] = preg_replace($regex, ", " . $line[NEW_LABEL],
+                            $this->data[$line[FIELD_NAME]]['enum']);
+
+                    }
+
+                    //if something update for values or label then update field in the database
+                    if ($this->getProject()->metadata[$line[FIELD_NAME]]['element_enum'] != $this->data[$line[FIELD_NAME]]['enum']) {
+                        $this->updateFieldEnum($line, $this->data[$line[FIELD_NAME]]['enum']);
+
+                        if ($valueUpdate) {
+                            //update records that has the information.
+                            $this->updateFieldData($eventId, $line[FIELD_NAME], $line[CURRENT_VALUE], $line[NEW_VALUE]);
+
+                            //update survey records that has current field information.
+                            $this->updateFieldSurveyLogic($eventId, $line[FIELD_NAME], $line[CURRENT_VALUE],
+                                $line[NEW_VALUE]);
+
+                            //update branching logic for other fields
+                            $this->updateBranchingLogic($line);
                         }
-                        $newValues = $currentValues;
-                    } else {
-                        //get new field values posted via uploaded file
-                        $newKeys = array_keys(parseEnum(str_replace("|", "\n", $line[5])));
-                        $newValues = parseEnum(str_replace("|", "\n", $line[5]));
                     }
 
-
-                    //compare two arrays of keys and their corresponding  values and check if anything got changed
-                    $diff = array_diff($currentKeys, $newKeys);;
-                    $diffValue = array_diff_key($currentValues, $newValues);;
-
-                    //if both are empty nothing changed ignore this field.
-                    if (empty($diff) && empty($diffValue)) {
-                        continue;
-                    }
-
-                    //if number of values changed the map wont work abort
-                    if (count($newValues) != count($currentValues)) {
-                        throw new \LogicException("Number of posted values do not equal existing values, please review uploaded data dictionary for field: " . $line[0]);
-                    }
-
-                    //update all data related to this field.
-                    $pointer = 0;
-                    foreach ($newKeys as $key => $new) {
-                        $old = $currentKeys[$key];
-
-                        //values are different
-                        if ($old != $new) {
-                            $var = "[" . $line[0] . "]";
-                            $this->updatedFields[$var][] = array($old => $new);
-                            $this->updateFieldData($eventId, $line[0], $old, $new);
-
-                            $this->updateFieldSurveyLogic($eventId, $line[0], $old, $new);
-                        }
-                        $pointer++;
-                    }
-
-                    //todo update calculated fields for new values;
                     $pointer++;
-                }
-
-                //update branching logic for other fields
-                $logic = $this->updateBranchingLogic($data["L"]);
-                //check if logic changed update meta data again;
-                $diff = array_diff($data["L"], $logic);;
-                if (!empty($diff)) {
-                    $data["L"] = $logic;
-                    $this->updateMetaData($data);
                 }
 
                 fclose($file);
@@ -576,30 +594,51 @@ class InstrumentsGenerator extends \ExternalModules\AbstractExternalModule
         }
     }
 
-    private function updateBranchingLogic($logic)
+    private function updateFieldEnum($field, $enum)
     {
-        if (!empty($this->updatedFields)) {
-            foreach ($this->updatedFields as $field => $map) {
-                foreach ($logic as $key => $row) {
-                    if ($row == "") {
-                        continue;
-                    } else {
-                        //if field is in branching logic
-                        if (strpos($row, $field) !== false) {
-                            foreach ($map as $old => $new) {
-                                //if the value is in branching logic
-                                if (strpos($row, key($new)) !== false) {
-                                    $x = key($new);
-                                    $string = str_replace($x, $new[$x], $row);
-                                    $logic[$key] = $string;
-                                }
-                            }
-                        }
-                    }
+        // Set up all actions as a transaction to ensure everything is done here
+        db_query("SET AUTOCOMMIT=0");
+        db_query("BEGIN");
+
+        // Save data dictionary in metadata table
+        $sql_errors = db_query("UPDATE redcap_metadata set element_enum = '" . $enum . "' WHERE field_name = '" . $field[FIELD_NAME] . "' AND project_id = '" . $this->getProjectId() . "'");
+
+        // Display any failed queries to Super Users, but only give minimal info of error to regular users
+        if (!$sql_errors) {
+
+            // ERRORS OCCURRED, so undo any changes made
+            db_query("ROLLBACK");
+            // Set back to previous value
+            db_query("SET AUTOCOMMIT=1");
+
+            throw new \LogicException(implode(",", $sql_errors));
+
+        } else {
+            // COMMIT CHANGES
+            db_query("COMMIT");
+            // Set back to previous value
+            db_query("SET AUTOCOMMIT=1");
+
+        }
+    }
+
+    private function updateBranchingLogic($field)
+    {
+        $sql = "SELECT branching_logic, field_name FROM redcap_metadata where branching_logic LIKE '%" . $field[FIELD_NAME] . "%" . $field[CURRENT_VALUE] . "%' AND project_id = '" . $this->getProjectId() . "'";
+
+        $result = db_query($sql);
+        $count = db_num_rows($result);
+
+        if ($count > 0) {
+            while ($row = db_fetch_assoc($result)) {
+                $logic = str_replace($field[CURRENT_VALUE], '"' . $field[NEW_VALUE] . '"', $row['branching_logic']);
+                $sql = "UPDATE redcap_metadata set branching_logic = '$logic' WHERE event_id = '" . $row['field_name'] . "' AND project_id = '" . $this->getProjectId() . "'";
+                $result = db_query($sql);
+                if (!$result) {
+                    throw new \LogicException("Cant update branching logic for " . $row['field_name']);
                 }
             }
         }
-        return $logic;
     }
 
     private function getEventName($instrument)
@@ -651,31 +690,32 @@ class InstrumentsGenerator extends \ExternalModules\AbstractExternalModule
         );
         $data = REDCap::getData($param);
 
-        foreach ($data as $id => $record) {
-            $d[REDCap::getRecordIdField()] = $id;
-            $d[$name] = $new;
-            //$d['redcap_event_name'] = $eventId;
-            $response = \REDCap::saveData('json', json_encode(array($d)));
-            if ($response['errors']) {
-                if (is_array($response['errors'])) {
-                    $error = implode(", ", $response['errors']);
-                } else {
-                    $error = $response['errors'];
+        if ($data) {
+            foreach ($data as $id => $record) {
+                $d[REDCap::getRecordIdField()] = $id;
+                $d[$name] = $new;
+                //$d['redcap_event_name'] = $eventId;
+                $response = \REDCap::saveData('json', json_encode(array($d)));
+                if ($response['errors']) {
+                    if (is_array($response['errors'])) {
+                        $error = implode(", ", $response['errors']);
+                    } else {
+                        $error = $response['errors'];
+                    }
+                    throw new \LogicException($error);
                 }
-                throw new \LogicException($error);
             }
         }
     }
 
-    private function updateMetaData($data)
+    private function updateFieldLabel($field)
     {
         // Set up all actions as a transaction to ensure everything is done here
         db_query("SET AUTOCOMMIT=0");
         db_query("BEGIN");
 
-
         // Save data dictionary in metadata table
-        $sql_errors = MetaData::save_metadata($data);
+        $sql_errors = db_query("UPDATE redcap_metadata set element_lable = " . $field[FIELD_LABEL] . " WHERE field_name = " . $field[FIELD_NAME] . " AND project_id = " . $this->getProjectId());
 
         // Display any failed queries to Super Users, but only give minimal info of error to regular users
         if (count($sql_errors) > 0) {

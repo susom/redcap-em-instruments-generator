@@ -1,0 +1,5 @@
+field_name,field_label,instrument_name,current_value,new_value,current_label,new_label
+Test_Drop_down,,instrument1,1,0,Option 1,Option 0
+Test_Drop_down,,instrument1,2,,Option 2,
+Test_Checkbox,,instrument2,888,,Present,
+Test_Checkbox,,instrument2,999,,Unknown,
