@@ -35,8 +35,8 @@ $generatorURL = $module->getUrl('model/re_value.php', false, true);
     </div>
     <div class="row ">
         <div class="col-lg-12">
-            <a href="<?php echo $module->getUrl('sample/import_sample.csv') ?>"
-               class=" text-center btn btn-primary btn-lg btn-block">First Download Sample Import file</a>
+            <a href="<?php echo $module->getUrl('model/all_values.php') ?>"
+               class=" text-center btn btn-primary btn-lg btn-block">Download Complete list of Project Values/Labels</a>
         </div>
     </div>
     <div id="filters-row" class="row p-1">

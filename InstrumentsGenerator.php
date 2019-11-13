@@ -735,4 +735,29 @@ class InstrumentsGenerator extends \ExternalModules\AbstractExternalModule
 
         }
     }
+
+    /**
+     * generate csv file for all dropdown and checkboxes values in a project.
+     *
+     */
+    public function generate()
+    {
+
+        $data[] = "field_name,field_label,instrument_name,current_value,new_value,current_label,new_label";
+        foreach ($this->getProject()->metadata as $name => $field) {
+            $pointer = 0;
+            if (!in_array($field['element_type'],
+                array('select', 'checkbox'))) {
+                continue;
+            }
+
+            $instrument = $field['form_name'];
+            $labels = parseEnum($field['element_enum']);
+            foreach ($labels as $key => $label) {
+                $data[] = "$name,,$instrument,$key,,$label,";
+            }
+        }
+        $this->downloadCSVFile('sample_data.csv', $data);
+        header('Location: ' . $_SERVER['HTTP_REFERER']);
+    }
 }
