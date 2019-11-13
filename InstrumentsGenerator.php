@@ -526,7 +526,7 @@ class InstrumentsGenerator extends \ExternalModules\AbstractExternalModule
                     }
 
                     //if passed current label does not exist as a label in data dictionary.
-                    if ($line[CURRENT_LABEL] != '' && !in_array($line[CURRENT_LABEL],
+                    if ($line[CURRENT_LABEL] != '' && $line[NEW_LABEL] != '' && !in_array($line[CURRENT_LABEL],
                             $this->data[$line[FIELD_NAME]]['labels'])) {
                         throw new \LogicException("Current Label " . $line[CURRENT_LABEL] . " does not exist in " . $line[FIELD_NAME]);
                     }
@@ -743,7 +743,7 @@ class InstrumentsGenerator extends \ExternalModules\AbstractExternalModule
     public function generate()
     {
 
-        $data[] = "field_name,field_label,instrument_name,current_value,new_value,current_label,new_label";
+        $data[] = 'field_name,field_label,instrument_name,current_value,new_value,current_label,new_label';
         foreach ($this->getProject()->metadata as $name => $field) {
             $pointer = 0;
             if (!in_array($field['element_type'],
@@ -754,7 +754,7 @@ class InstrumentsGenerator extends \ExternalModules\AbstractExternalModule
             $instrument = $field['form_name'];
             $labels = parseEnum($field['element_enum']);
             foreach ($labels as $key => $label) {
-                $data[] = "$name,,$instrument,$key,,$label,";
+                $data[] = '' . $name . ',,' . $instrument . ',' . $key . ',,"' . $label . '",';
             }
         }
         $this->downloadCSVFile('sample_data.csv', $data);
