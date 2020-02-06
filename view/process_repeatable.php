@@ -39,10 +39,10 @@ $generatorURL = $module->getUrl('model/process_repeatable.php', false, true);
             </select>
         </div>
         <div class="form-group">
-            <label for="exampleFormControlSelect1">If your data does have record ID select the Identifier that will map
-                to correct record ID</label>
+            <label for="exampleFormControlSelect1">If your data does not have REDCap PK field select a unique identifier
+                in your data to allow the system to get REDCap PK values for your data.</label>
             <select name="alternativePK" id="alternativePK" required>
-                <option value="">SELECT INSTRUMENT</option>
+                <option value="">SELECT FIELD</option>
                 <?php
                 $fields = $module->getProject()->metadata;
                 foreach ($fields as $id => $array) {

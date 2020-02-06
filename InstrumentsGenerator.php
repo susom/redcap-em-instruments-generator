@@ -402,10 +402,7 @@ class InstrumentsGenerator extends \ExternalModules\AbstractExternalModule
 
     public function processRepeatableData($file, $formName)
     {
-        $data = array();
         $pointer = 0;
-        $header = array();
-        $fp = fopen(__DIR__ . '/../../../logs/' . $formName . '.csv', "w");
         $pkField = REDCap::getRecordIdField();
         if ($this->getAlternativePK()) {
             $fields = array($pkField, $this->getAlternativePK());
@@ -437,8 +434,7 @@ class InstrumentsGenerator extends \ExternalModules\AbstractExternalModule
                             }
                         }
                         if (is_null($id)) {
-                            // echo $this->getAlternativePK() . ":" . $identifier . " has no record available<br>";
-                            continue;
+                            $id = $identifier . ' Has no PK in this project';
                         }
 
                         $map[$identifier] = $id;
