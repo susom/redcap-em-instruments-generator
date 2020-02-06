@@ -2,6 +2,9 @@
 
 namespace Stanford\InstrumentsGenerator;
 
+ini_set("memory_limit", "-1");
+set_time_limit(0);
+
 use Logging;
 use MetaData;
 use REDCap;
@@ -21,8 +24,10 @@ define("NEW_LABEL", 6);
  * @property \ZipArchive $archive
  * @property \Project $project
  * @property bool $autoValue
+ * @property string $alternativePK
+ * @property int $alternativePKIndex
+ * @property array $alternativePKMap
  */
-
 class InstrumentsGenerator extends \ExternalModules\AbstractExternalModule
 {
 
@@ -62,6 +67,13 @@ class InstrumentsGenerator extends \ExternalModules\AbstractExternalModule
     private $updatedFields = array();
 
     private $autoValue;
+
+    private $alternativePK;
+
+    private $alternativePKIndex;
+
+    private $alternativePKMap;
+
     public function __construct()
     {
         try {
@@ -72,6 +84,10 @@ class InstrumentsGenerator extends \ExternalModules\AbstractExternalModule
                 $this->setProject(new \Project(filter_var($_GET['pid'], FILTER_SANITIZE_NUMBER_INT)));
             }
 
+            # in case the imported data does not have REDCap PK in it. user will define another record identifier (like MRN) which will allow us to pull associate record_id from it
+            if (isset($_POST['alternativePK']) && $_POST['alternativePK'] != "") {
+                $this->setAlternativePK(filter_var($_POST['alternativePK'], FILTER_SANITIZE_STRING));
+            }
             /**
              * Open main instruments archive file for save
              */
@@ -82,6 +98,55 @@ class InstrumentsGenerator extends \ExternalModules\AbstractExternalModule
             echo $e->getMessage();
         }
     }
+
+    /**
+     * @return array
+     */
+    public function getAlternativePKMap()
+    {
+        return $this->alternativePKMap;
+    }
+
+    /**
+     * @param array $alternativePKMap
+     */
+    public function setAlternativePKMap($alternativePKMap)
+    {
+        $this->alternativePKMap = $alternativePKMap;
+    }
+
+    /**
+     * @return int
+     */
+    public function getAlternativePKIndex()
+    {
+        return $this->alternativePKIndex;
+    }
+
+    /**
+     * @param int $alternativePKIndex
+     */
+    public function setAlternativePKIndex($alternativePKIndex)
+    {
+        $this->alternativePKIndex = $alternativePKIndex;
+    }
+
+    /**
+     * @return string
+     */
+    public function getAlternativePK()
+    {
+        return $this->alternativePK;
+    }
+
+    /**
+     * @param string $alternativePK
+     */
+    public function setAlternativePK($alternativePK)
+    {
+        $this->alternativePK = $alternativePK;
+    }
+
 
     /**
      * @return bool
@@ -132,7 +197,6 @@ class InstrumentsGenerator extends \ExternalModules\AbstractExternalModule
     {
         $this->archive = $archive;
     }
-
 
 
     public function process($file)
@@ -299,7 +363,18 @@ class InstrumentsGenerator extends \ExternalModules\AbstractExternalModule
 
         $i = 0;
         $fields = REDCap::getFieldNames($formName);
-        foreach ($line as $field) {
+        foreach ($line as $index => $field) {
+
+            # if we do not have REDCap identifier we need to get the defined identifier index
+            if ($this->getAlternativePK()) {
+                if ($this->getAlternativePK() == $field) {
+                    $this->setAlternativePKIndex($index);
+
+                    # now change the field value to the REDCap PK
+                    $field = REDCap::getRecordIdField();
+                }
+            }
+
             if ($i > 0) {
                 $fieldName = strtolower($field) . '_' . $formName;
                 //$fieldType = REDCap::getFieldType($fieldName);
@@ -330,6 +405,17 @@ class InstrumentsGenerator extends \ExternalModules\AbstractExternalModule
         $data = array();
         $pointer = 0;
         $header = array();
+        $fp = fopen(__DIR__ . '/../../../logs/' . $formName . '.csv', "w");
+        $pkField = REDCap::getRecordIdField();
+        if ($this->getAlternativePK()) {
+            $fields = array($pkField, $this->getAlternativePK());
+            $param = array(
+                'fields' => $fields,
+                'events' => $this->getProject()->firstEventId
+            );
+            $all = REDCap::getData($param);
+        }
+
         if ($file) {
             while (($line = fgetcsv($file, 0, ",")) !== false) {
 
@@ -337,6 +423,29 @@ class InstrumentsGenerator extends \ExternalModules\AbstractExternalModule
                     $this->data[] = implode(",", $this->processRepeatableDataHeader($line, $formName));
                     $pointer++;
                     continue;
+                }
+
+                # if we are using another identifier then make sure to replace it with correct REDCap pk
+                if ($this->getAlternativePK()) {
+                    $id = null;
+                    $identifier = $line[$this->getAlternativePKIndex()];
+                    $map = $this->getAlternativePKMap();
+                    if (!isset($map[$identifier])) {
+                        foreach ($all as $record) {
+                            if ($record[$this->getProject()->firstEventId][$this->getAlternativePK()] == $identifier) {
+                                $id = $record[$this->getProject()->firstEventId][$pkField];
+                            }
+                        }
+                        if (is_null($id)) {
+                            // echo $this->getAlternativePK() . ":" . $identifier . " has no record available<br>";
+                            continue;
+                        }
+
+                        $map[$identifier] = $id;
+
+                        $this->setAlternativePKMap($map);
+                    }
+                    $line[$this->getAlternativePKIndex()] = $map[$identifier];
                 }
 
                 /**
@@ -358,9 +467,10 @@ class InstrumentsGenerator extends \ExternalModules\AbstractExternalModule
                  */
                 $line[] = $formName;
                 $pointer++;
+                //fputcsv($fp, $this->removeNewLines($line));
                 $this->data[] = implode(",", $this->removeNewLines($line));
-
             }
+            //fclose($fp);
             fclose($file);
             $this->downloadCSVFile($formName . '.csv', $this->data);
         }
