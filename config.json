@@ -1,5 +1,5 @@
 {
-  "name": "REDCap Instruments Generator",
+  "name": "REDCap Instruments Generator(RIG)",
   "namespace": "Stanford\\InstrumentsGenerator",
   "description": "This EM will generate multiple CSV files to be imported into REDCap",
   "authors": [
@@ -15,25 +15,25 @@
   "links": {
     "project": [
       {
-        "name": "Instruments Generator",
+        "name": "RIG - Instruments Generator",
         "icon": "page_white_stack",
         "url": "view/index.php",
         "show-header-and-footer": true
       },
       {
-        "name": "Process Repeatable Data",
+        "name": "RIG - Process Repeatable Data",
         "icon": "gear",
         "url": "view/process_repeatable.php",
         "show-header-and-footer": true
       },
       {
-        "name": "Import Data via REDCap API",
+        "name": "RIG - Import Data via REDCap API",
         "icon": "redcap-logo-letter",
         "url": "view/import.php",
         "show-header-and-footer": true
       },
       {
-        "name": "Re-Value Data Dictionary Options",
+        "name": "RIG - Re-Value Data Dictionary Options",
         "icon": "gear",
         "url": "view/re_value.php",
         "show-header-and-footer": true

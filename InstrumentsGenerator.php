@@ -27,6 +27,7 @@ define("NEW_LABEL", 6);
  * @property string $alternativePK
  * @property int $alternativePKIndex
  * @property array $alternativePKMap
+ * @property boolean $appendInstrumentName
  */
 class InstrumentsGenerator extends \ExternalModules\AbstractExternalModule
 {
@@ -74,6 +75,8 @@ class InstrumentsGenerator extends \ExternalModules\AbstractExternalModule
 
     private $alternativePKMap;
 
+    private $appendInstrumentName;
+
     public function __construct()
     {
         try {
@@ -88,6 +91,13 @@ class InstrumentsGenerator extends \ExternalModules\AbstractExternalModule
             if (isset($_POST['alternativePK']) && $_POST['alternativePK'] != "") {
                 $this->setAlternativePK(filter_var($_POST['alternativePK'], FILTER_SANITIZE_STRING));
             }
+
+            # define wither to append instrument name or not to generated fields names
+            if (isset($_POST['appendInstrumentName']) && $_POST['appendInstrumentName'] != "") {
+                $this->setAppendInstrumentName(filter_var($_POST['appendInstrumentName'], FILTER_SANITIZE_STRING));
+            }
+
+
             /**
              * Open main instruments archive file for save
              */
@@ -97,6 +107,22 @@ class InstrumentsGenerator extends \ExternalModules\AbstractExternalModule
         } catch (\Exception $e) {
             echo $e->getMessage();
         }
+    }
+
+    /**
+     * @return bool
+     */
+    public function isAppendInstrumentName()
+    {
+        return $this->appendInstrumentName;
+    }
+
+    /**
+     * @param bool $appendInstrumentName
+     */
+    public function setAppendInstrumentName($appendInstrumentName)
+    {
+        $this->appendInstrumentName = $appendInstrumentName;
     }
 
     /**
@@ -376,8 +402,13 @@ class InstrumentsGenerator extends \ExternalModules\AbstractExternalModule
             }
 
             if ($i > 0) {
-                $fieldName = strtolower($field) . '_' . $formName;
-                //$fieldType = REDCap::getFieldType($fieldName);
+                if ($this->isAppendInstrumentName()) {
+                    $fieldName = strtolower($field) . '_' . $formName;
+                    //$fieldType = REDCap::getFieldType($fieldName);
+                } else {
+                    $fieldName = strtolower($field);
+                }
+
 
             } else {
                 $fieldName = strtolower($field);
