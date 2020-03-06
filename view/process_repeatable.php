@@ -46,7 +46,7 @@ $generatorURL = $module->getUrl('model/process_repeatable.php', false, true);
         <div class="form-group">
             <label for="alternativePK">If your data does not have REDCap PK field select a unique identifier
                 in your data to allow the system to get REDCap PK values for your data.</label>
-            <select name="alternativePK" id="alternativePK" required>
+            <select name="alternativePK" id="alternativePK">
                 <option value="">SELECT FIELD</option>
                 <?php
                 $fields = $module->getProject()->metadata;
