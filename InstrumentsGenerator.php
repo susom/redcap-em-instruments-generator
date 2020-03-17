@@ -445,7 +445,7 @@ class InstrumentsGenerator extends \ExternalModules\AbstractExternalModule
         }
 
         if ($file) {
-            while (($line = fgetcsv($file, 0, ",")) !== false) {
+            while (($line = fgetcsv($file, 0, ",", '"', '"')) !== false) {
 
                 if ($pointer == 0) {
                     $this->data[] = implode(",", $this->processRepeatableDataHeader($line, $formName));
@@ -495,12 +495,17 @@ class InstrumentsGenerator extends \ExternalModules\AbstractExternalModule
                 $line[] = $formName;
                 $pointer++;
                 //fputcsv($fp, $this->removeNewLines($line));
-                $this->data[] = implode(",", $this->removeNewLines($line));
+                $this->data[] = implode(",", array_map([$this, 'add_quotes'],  $this->removeNewLines($line)));
             }
             //fclose($fp);
             fclose($file);
             $this->downloadCSVFile($formName . '.csv', $this->data);
         }
+    }
+
+
+    private function add_quotes($str) {
+        return sprintf('"%s"', $str);
     }
 
     private function removeNewLines($line)
