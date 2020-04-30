@@ -23,12 +23,6 @@ $generatorURL = $module->getUrl('model/process_repeatable.php', false, true);
             <small id="emailHelp" class="form-text text-muted">Please upload STRIDE generated CSV file</small>
         </div>
 
-        <div class="custom-control custom-checkbox">
-            <input type="checkbox" class="custom-control-input" name="appendInstrumentName" id="appendInstrumentName"
-                   checked>
-            <label class="custom-control-label" for="appendInstrumentName">Check if you want ot append instrument name
-                to generated fields names.</label>
-        </div>
         <div class="form-group">
             <label for="exampleFormControlSelect1">Targeted Instrument</label>
             <select name="instruments" id="instruments" required>
@@ -43,6 +37,46 @@ $generatorURL = $module->getUrl('model/process_repeatable.php', false, true);
                 ?>
             </select>
         </div>
+
+
+        <div class="form-group">
+            <label for="primarySort">Primary sort</label>
+            <select name="primarySort" id="primarySort">
+                <option value="">SELECT FIELD</option>
+                <?php
+                $fields = $module->getProject()->metadata;
+                foreach ($fields as $id => $array) {
+                    ?>
+                    <option value="<?php echo $id ?>"><?php echo $array['element_label'] ?></option>
+                    <?php
+                }
+                ?>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label for="secondarySort">Secondary sort</label>
+            <select name="secondarySort" id="secondarySort">
+                <option value="">SELECT FIELD</option>
+                <?php
+                $fields = $module->getProject()->metadata;
+                foreach ($fields as $id => $array) {
+                    ?>
+                    <option value="<?php echo $id ?>"><?php echo $array['element_label'] ?></option>
+                    <?php
+                }
+                ?>
+            </select>
+        </div>
+
+
+        <div class="custom-control custom-checkbox">
+            <input type="checkbox" class="custom-control-input" name="appendInstrumentName" id="appendInstrumentName"
+                   >
+            <label class="custom-control-label" for="appendInstrumentName">Check if you want to append instrument name
+                to generated fields names.</label>
+        </div>
+
         <div class="form-group">
             <label for="alternativePK">If your data does not have REDCap PK field select a unique identifier
                 in your data to allow the system to get REDCap PK values for your data.</label>

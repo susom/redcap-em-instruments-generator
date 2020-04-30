@@ -1,6 +1,7 @@
 <?php
 
 namespace Stanford\InstrumentsGenerator;
+require_once 'emLoggerTrait.php';
 
 ini_set("memory_limit", "-1");
 set_time_limit(0);
@@ -25,13 +26,15 @@ define("NEW_LABEL", 6);
  * @property \Project $project
  * @property bool $autoValue
  * @property string $alternativePK
+ * @property string $primarySort
+ * @property string $secondarySort
  * @property int $alternativePKIndex
  * @property array $alternativePKMap
  * @property boolean $appendInstrumentName
  */
 class InstrumentsGenerator extends \ExternalModules\AbstractExternalModule
 {
-
+    use emLoggerTrait;
     private static $API_TOKEN = "CA321EE1BFF5D0B534DA1ABFF47AF3D9";
 
     private static $supportedDataType = [
@@ -59,6 +62,8 @@ class InstrumentsGenerator extends \ExternalModules\AbstractExternalModule
 
     private $data = array();
 
+    private $presortData = array();
+
     private $recordCounter = array();
 
     private $project;
@@ -74,6 +79,10 @@ class InstrumentsGenerator extends \ExternalModules\AbstractExternalModule
     private $alternativePKIndex;
 
     private $alternativePKMap;
+
+    private $primarySort;
+
+    private $secondarySort;
 
     private $appendInstrumentName;
 
@@ -92,11 +101,20 @@ class InstrumentsGenerator extends \ExternalModules\AbstractExternalModule
                 $this->setAlternativePK(filter_var($_POST['alternativePK'], FILTER_SANITIZE_STRING));
             }
 
-            # define wither to append instrument name or not to generated fields names
+            # primary sort key
+            if (isset($_POST['primarySort']) && $_POST['primarySort'] != "") {
+                $this->setPrimarySort(filter_var($_POST['primarySort'], FILTER_SANITIZE_STRING));
+            }
+
+            # secondary sort key
+            if (isset($_POST['secondarySort']) && $_POST['secondarySort'] != "") {
+                $this->setSecondarySort(filter_var($_POST['secondarySort'], FILTER_SANITIZE_STRING));
+            }
+
+            # define whether to append instrument name or not to generated fields names
             if (isset($_POST['appendInstrumentName']) && $_POST['appendInstrumentName'] != "") {
                 $this->setAppendInstrumentName(filter_var($_POST['appendInstrumentName'], FILTER_SANITIZE_STRING));
             }
-
 
             /**
              * Open main instruments archive file for save
@@ -163,6 +181,38 @@ class InstrumentsGenerator extends \ExternalModules\AbstractExternalModule
     public function getAlternativePK()
     {
         return $this->alternativePK;
+    }
+
+    /**
+     * @return string
+     */
+    public function getPrimarySort()
+    {
+        return $this->primarySort;
+    }
+
+    /**
+     * @return string
+     */
+    public function getSecondarySort()
+    {
+        return $this->secondarySort;
+    }
+
+    /**
+     * @param string primarySort
+     */
+    public function setPrimarySort($primarySort)
+    {
+        $this->primarySort = $primarySort;
+    }
+
+    /**
+     * @param string secondarySort
+     */
+    public function setSecondarySort($secondarySort)
+    {
+        $this->secondarySort = $secondarySort;
     }
 
     /**
@@ -431,6 +481,16 @@ class InstrumentsGenerator extends \ExternalModules\AbstractExternalModule
         return $line;
     }
 
+    function build_sorter($pkey, $skey) {
+        return function ($a, $b) use ($pkey, $skey) {
+ //       $this->emLog('entering sort ' . $pkey . '  ... ' . $skey . '  ... ' . $a[$skey]);
+            if (strtotime($a[$pkey]) == strtotime($b[$pkey])) {
+                return  strtotime($a[$skey]) - strtotime($b[$skey]);
+            };
+            return  strtotime($a[$pkey]) - strtotime($b[$pkey]);
+        };
+    }
+
     public function processRepeatableData($file, $formName)
     {
         $pointer = 0;
@@ -446,7 +506,31 @@ class InstrumentsGenerator extends \ExternalModules\AbstractExternalModule
 
         if ($file) {
             while (($line = fgetcsv($file, 0, ",", '"', '"')) !== false) {
+                $this->presortData[] = $line;
+            }
+            // now figure out which fields are used as sort keys
+            $pkey = -1;
+            foreach ($this->presortData[0] as $header ) {
+                $pkey++;
+                if (strcmp($header, $this->getPrimarySort()) == 0) {
+                    break;
+                }
+            }
+            $skey = -1;
+            foreach ($this->presortData[0] as $header ) {
+                $skey++;
+                if (strcmp($header, $this->getSecondarySort()) == 0) {
+                    break;
+                }
+            }
 
+            if (! is_null($this->presortData) && ! is_null($this->getPrimarySort())) {
+                $headerRow = array_shift($this->presortData);
+                usort($this->presortData, $this->build_sorter($pkey,$skey));
+                array_unshift( $this->presortData, $headerRow ) ;
+            }
+            $this->data = $this->presortData;
+            foreach ($this->data as $line ) {
                 if ($pointer == 0) {
                     $this->data[] = implode(",", $this->processRepeatableDataHeader($line, $formName));
                     $pointer++;
