@@ -529,8 +529,9 @@ class InstrumentsGenerator extends \ExternalModules\AbstractExternalModule
                 usort($this->presortData, $this->build_sorter($pkey,$skey));
                 array_unshift( $this->presortData, $headerRow ) ;
             }
-            $this->data = $this->presortData;
-            foreach ($this->data as $line ) {
+ //           $this->emLog('done sort ' . print_r($this->presortData, TRUE));
+
+            foreach ($this->presortData as $line ) {
                 if ($pointer == 0) {
                     $this->data[] = implode(",", $this->processRepeatableDataHeader($line, $formName));
                     $pointer++;
