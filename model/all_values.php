@@ -3,8 +3,8 @@
 namespace Stanford\InstrumentsGenerator;
 
 /** @var \Stanford\InstrumentsGenerator\InstrumentsGenerator $module */
-ini_set('display_errors', 1);
-ini_set('display_startup_errors', 1);
+//ini_set('display_errors', 1);
+//ini_set('display_startup_errors', 1);
 
 try {
     $module->generate();
